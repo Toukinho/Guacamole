@@ -12,6 +12,7 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 
+/** Conclusao de uma aula por um usuario, identificada pelo par de IDs e com data de conclusao. */
 @Entity
 @Table(name = "lesson_completion")
 @IdClass(LessonCompletionId.class)

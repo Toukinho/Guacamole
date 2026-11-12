@@ -3,6 +3,7 @@ package com.guacamole.backend.entity;
 import java.io.Serializable;
 import java.util.Objects;
 
+/** Identificador composto pelos IDs do usuario e da aula concluida. */
 public class LessonCompletionId implements Serializable {
 
 	private static final long serialVersionUID = 1L;

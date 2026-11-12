@@ -12,6 +12,7 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 
+/** Vinculo entre usuario e curso salvo, identificado pelo par de IDs e com data de criacao. */
 @Entity
 @Table(name = "course_watchlist")
 @IdClass(CourseWatchlistId.class)
