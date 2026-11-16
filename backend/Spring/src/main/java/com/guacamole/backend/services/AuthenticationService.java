@@ -14,11 +14,13 @@ public class AuthenticationService {
 	private final UserRepository users;
 	private final PasswordService passwords;
 	private final TokenService tokens;
+	private final String dummyHash;
 
 	public AuthenticationService(UserRepository users, PasswordService passwords, TokenService tokens) {
 		this.users = users;
 		this.passwords = passwords;
 		this.tokens = tokens;
+		this.dummyHash = passwords.hash("dummy-password-for-timing");
 	}
 
 	@Transactional
@@ -33,10 +35,12 @@ public class AuthenticationService {
 		return new TokenDto(tokens.issue(user.getId()));
 	}
 
-	@Transactional(readOnly = true)
+	@Transactional
 	public TokenDto login(LoginRequest request) {
-		User user = users.findByEmail(request.email()).orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid credentials"));
-		if (!passwords.matches(request.password(), user.getPassword())) throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid credentials");
+		User user = users.findByEmail(request.email()).orElse(null);
+		boolean valid = passwords.matches(request.password(), user == null ? dummyHash : user.getPassword());
+		if (user == null || !valid) throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid credentials");
+		if (user.getPassword().startsWith("pbkdf2-sha256$") && request.password().getBytes(java.nio.charset.StandardCharsets.UTF_8).length <= 72) user.setPassword(passwords.hash(request.password()));
 		return new TokenDto(tokens.issue(user.getId()));
 	}
 

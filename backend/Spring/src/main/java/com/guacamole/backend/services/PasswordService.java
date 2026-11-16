@@ -1,27 +1,26 @@
 package com.guacamole.backend.services;
 
 import java.security.MessageDigest;
-import java.security.SecureRandom;
 import java.util.Base64;
 import javax.crypto.SecretKeyFactory;
 import javax.crypto.spec.PBEKeySpec;
 import org.springframework.stereotype.Component;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 
 /** Armazena apenas hash com salt e fator de trabalho, nunca a senha recebida. */
 @Component
 public class PasswordService {
-	private static final int ITERATIONS = 600_000;
-	private final SecureRandom random = new SecureRandom();
+	private final BCryptPasswordEncoder bcrypt = new BCryptPasswordEncoder();
 
 	public String hash(String password) {
-		byte[] salt = new byte[16];
-		random.nextBytes(salt);
-		return "pbkdf2-sha256$" + ITERATIONS + "$" + Base64.getEncoder().encodeToString(salt) + "$"
-				+ Base64.getEncoder().encodeToString(derive(password, salt, ITERATIONS));
+		if (password.getBytes(java.nio.charset.StandardCharsets.UTF_8).length > 72)
+			throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST, "Password exceeds 72 bytes");
+		return bcrypt.encode(password);
 	}
 
 	public boolean matches(String password, String encoded) {
 		try {
+			if (encoded.startsWith("$2")) return password.getBytes(java.nio.charset.StandardCharsets.UTF_8).length <= 72 && bcrypt.matches(password, encoded);
 			String[] parts = encoded.split("\\$");
 			if (parts.length != 4 || !parts[0].equals("pbkdf2-sha256")) return false;
 			int iterations = Integer.parseInt(parts[1]);
