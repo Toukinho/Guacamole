@@ -12,13 +12,13 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 @Configuration
 public class SecurityConfig {
 	@Bean
-	FilterRegistrationBean<JwtAuthenticationFilter> jwtFilterRegistration(JwtAuthenticationFilter filter) {
-		FilterRegistrationBean<JwtAuthenticationFilter> registration = new FilterRegistrationBean<>(filter);
+	FilterRegistrationBean<TokenAuthenticationFilter> tokenFilterRegistration(TokenAuthenticationFilter filter) {
+		FilterRegistrationBean<TokenAuthenticationFilter> registration = new FilterRegistrationBean<>(filter);
 		registration.setEnabled(false);
 		return registration;
 	}
 	@Bean
-	SecurityFilterChain securityFilterChain(HttpSecurity http, JwtAuthenticationFilter jwt) throws Exception {
+	SecurityFilterChain securityFilterChain(HttpSecurity http, TokenAuthenticationFilter tokenFilter) throws Exception {
 		return http.csrf(csrf -> csrf.disable())
 				.logout(logout -> logout.disable())
 				.sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
@@ -30,6 +30,6 @@ public class SecurityConfig {
 						.requestMatchers(HttpMethod.GET, "/courses/{id}/progress").authenticated()
 						.requestMatchers(HttpMethod.GET, "/courses", "/courses/{id}", "/courses/{id}/lessons", "/lessons/{id}").permitAll()
 						.anyRequest().authenticated())
-				.addFilterBefore(jwt, UsernamePasswordAuthenticationFilter.class).build();
+				.addFilterBefore(tokenFilter, UsernamePasswordAuthenticationFilter.class).build();
 	}
 }

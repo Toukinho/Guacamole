@@ -5,15 +5,14 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 import java.time.Instant;
-import java.util.Date;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.util.HexFormat;
 import java.util.UUID;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityManagerFactory;
 import org.hibernate.SessionFactory;
-import com.guacamole.backend.services.RevokedTokenCleanup;
-import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.io.Decoders;
-import io.jsonwebtoken.security.Keys;
+import com.guacamole.backend.services.TokenService;
 import com.jayway.jsonpath.JsonPath;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -32,7 +31,11 @@ class ApiResourceTests {
 	@Autowired JdbcTemplate jdbc;
 	@Autowired EntityManager entityManager;
 	@Autowired EntityManagerFactory entityManagerFactory;
-	@Autowired RevokedTokenCleanup cleanup;
+	@Autowired TokenService tokens;
+
+	private String hash(String token) throws Exception {
+		return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(token.getBytes(StandardCharsets.US_ASCII)));
+	}
 
 	private String register(String email) throws Exception {
 		String result = mvc.perform(post("/register").contentType(MediaType.APPLICATION_JSON)
@@ -43,7 +46,7 @@ class ApiResourceTests {
 	}
 
 	@Test
-	void registersAuthenticatesAndRevokesJwt() throws Exception {
+	void registersAuthenticatesAndRevokesToken() throws Exception {
 		String email = UUID.randomUUID() + "@example.com";
 		String token = register(email);
 		assertTrue(jdbc.queryForObject("select password from `user` where email = ?", String.class, email).startsWith("$2"));
@@ -56,13 +59,19 @@ class ApiResourceTests {
 		mvc.perform(post("/login").contentType(MediaType.APPLICATION_JSON)
 				.content("{\"email\":\"" + email + "\",\"password\":\"wrong\"}"))
 				.andExpect(status().isUnauthorized());
-		mvc.perform(post("/login").contentType(MediaType.APPLICATION_JSON)
+		String secondToken = JsonPath.read(mvc.perform(post("/login").contentType(MediaType.APPLICATION_JSON)
 				.content("{\"email\":\"" + email + "\",\"password\":\"strong-test-password\"}"))
-				.andExpect(status().isOk()).andExpect(jsonPath("$.token").exists());
+				.andExpect(status().isOk()).andExpect(jsonPath("$.token").exists()).andReturn().getResponse().getContentAsString(), "$.token");
+		assertNotEquals(token, secondToken);
+		entityManager.flush();
+		assertEquals(hash(token), jdbc.queryForObject("select token_hash from auth_token where token_hash = ?", String.class, hash(token)));
+		assertEquals(0, jdbc.queryForObject("select count(*) from auth_token where token_hash = ?", Integer.class, token));
+		entityManager.clear();
 		mvc.perform(get("/me").header("Authorization", "Bearer " + token))
 				.andExpect(status().isOk()).andExpect(jsonPath("$.email").value(email)).andExpect(jsonPath("$.password").doesNotExist());
 		mvc.perform(post("/logout").header("Authorization", "Bearer " + token)).andExpect(status().isNoContent());
 		mvc.perform(get("/me").header("Authorization", "Bearer " + token)).andExpect(status().isUnauthorized());
+		mvc.perform(get("/me").header("Authorization", "Bearer " + secondToken)).andExpect(status().isOk());
 	}
 
 	@Test
@@ -82,15 +91,16 @@ class ApiResourceTests {
 	}
 
 	@Test
-	void cleansOnlyExpiredRevocationsAndKeepsLoggedOutTokensRejected() throws Exception {
+	void cleansOnlyExpiredTokensAndKeepsOtherSessionsValid() throws Exception {
 		String token = register(UUID.randomUUID() + "@example.com");
-		mvc.perform(post("/logout").header("Authorization", "Bearer " + token)).andExpect(status().isNoContent());
+		String expired = register(UUID.randomUUID() + "@example.com");
 		entityManager.flush();
-		String expiredId = UUID.randomUUID().toString();
-		jdbc.update("insert into revoked_token(id, expires_at) values (?, ?)", expiredId, java.sql.Timestamp.from(Instant.now().minusSeconds(60)));
-		cleanup.cleanExpired();
-		assertEquals(0, jdbc.queryForObject("select count(*) from revoked_token where id = ?", Integer.class, expiredId));
-		mvc.perform(get("/me").header("Authorization", "Bearer " + token)).andExpect(status().isUnauthorized());
+		jdbc.update("update auth_token set expires_at = ? where token_hash = ?", java.sql.Timestamp.from(Instant.now().minusSeconds(60)), hash(expired));
+		entityManager.clear();
+		mvc.perform(get("/me").header("Authorization", "Bearer " + expired)).andExpect(status().isUnauthorized());
+		tokens.cleanExpired();
+		assertEquals(0, jdbc.queryForObject("select count(*) from auth_token where token_hash = ?", Integer.class, hash(expired)));
+		mvc.perform(get("/me").header("Authorization", "Bearer " + token)).andExpect(status().isOk());
 	}
 
 	@Test
@@ -134,10 +144,7 @@ class ApiResourceTests {
 		mvc.perform(post("/courses/1/watchlist")).andExpect(status().isUnauthorized());
 		mvc.perform(post("/lessons/1/complete")).andExpect(status().isUnauthorized());
 		mvc.perform(get("/me").header("Authorization", "Bearer invalid")).andExpect(status().isUnauthorized());
-		String expired = Jwts.builder().subject("1").id(UUID.randomUUID().toString())
-				.expiration(Date.from(Instant.now().minusSeconds(60)))
-				.signWith(Keys.hmacShaKeyFor(Decoders.BASE64.decode("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="))).compact();
-		mvc.perform(get("/me").header("Authorization", "Bearer " + expired)).andExpect(status().isUnauthorized());
+		mvc.perform(get("/me").header("Authorization", "Bearer " + "A".repeat(43))).andExpect(status().isUnauthorized());
 	}
 
 	@Test

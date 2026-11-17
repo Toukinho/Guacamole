@@ -11,14 +11,12 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 import org.springframework.web.server.ResponseStatusException;
-import com.guacamole.backend.repositories.UserRepository;
 import com.guacamole.backend.services.TokenService;
 
 @Component
-public class JwtAuthenticationFilter extends OncePerRequestFilter {
+public class TokenAuthenticationFilter extends OncePerRequestFilter {
 	private final TokenService tokens;
-	private final UserRepository users;
-	public JwtAuthenticationFilter(TokenService tokens, UserRepository users) { this.tokens = tokens; this.users = users; }
+	public TokenAuthenticationFilter(TokenService tokens) { this.tokens = tokens; }
 
 	@Override
 	protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
@@ -27,7 +25,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 		if (authorization != null) {
 			try {
 				Long userId = tokens.require(authorization);
-				if (!users.existsById(userId)) { response.sendError(401); return; }
 				SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(userId, null, List.of()));
 			} catch (ResponseStatusException ex) {
 				SecurityContextHolder.clearContext();

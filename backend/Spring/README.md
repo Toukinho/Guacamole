@@ -3,7 +3,7 @@
 Execute os comandos neste diretório com JDK 25 e MySQL disponíveis. O Spring Boot carrega automaticamente `.env` como arquivo de propriedades ao iniciar pelo Gradle ou pelo IntelliJ; no IntelliJ, use a raiz do repositório ou `backend/Spring` como diretório de trabalho.
 
 1. Se necessário, copie `.env.example` para `.env`.
-2. Configure `DB_URL`, `DB_USERNAME` e `DB_PASSWORD` para o MySQL. Usuário e senha são obrigatórios; use uma conta exclusiva com privilégios mínimos. Defina `JWT_SECRET` como uma chave aleatória em Base64 de pelo menos 32 bytes. Nunca compartilhe esse arquivo.
+2. Configure `DB_URL`, `DB_USERNAME` e `DB_PASSWORD` para o MySQL. Usuário e senha são obrigatórios; use uma conta exclusiva com privilégios mínimos. Nunca compartilhe esse arquivo.
 3. Execute `.\gradlew.bat bootRun` no Windows ou `./gradlew bootRun` no Linux/macOS. No IntelliJ, inicie `BackendApplication`.
 4. Execute os testes com `.\gradlew.bat test` ou `./gradlew test`. Eles usam configuração própria em `src/test/resources`.
 
