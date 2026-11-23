@@ -28,7 +28,7 @@ function GuestOnly({ children }) {
 // BrowserRouter keeps the old scroll position; a new page should start at the top
 function ScrollToTop() {
   const { pathname } = useLocation()
-  useEffect(() => window.scrollTo(0, 0), [pathname])
+  useEffect(() => { window.scrollTo(0, 0) }, [pathname])
   return null
 }
 

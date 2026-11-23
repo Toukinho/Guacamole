@@ -9,16 +9,6 @@ const LOGO = String.raw`
 ╚██████╔╝╚██████╔╝██║  ██║╚██████╗██║  ██║██║ ╚═╝ ██║╚██████╔╝███████╗███████╗
  ╚═════╝  ╚═════╝ ╚═╝  ╚═╝ ╚═════╝╚═╝  ╚═╝╚═╝     ╚═╝ ╚═════╝ ╚══════╝╚══════╝`
 
-// shortcut: static sample of tracks, swap for the YouTube import API once the backend exists
-const FEED = [
-  ['PYTHON', '120 aulas', 'text-cyan'],
-  ['JAVASCRIPT', '53 aulas', 'text-orange'],
-  ['HTML5 + CSS3', '97 aulas', 'text-pink'],
-  ['GIT & GITHUB', '20 aulas', 'text-cyan'],
-  ['ALGORITMOS', '38 aulas', 'text-orange'],
-  ['PHP MODERNO', '62 aulas', 'text-pink'],
-]
-
 export default function AuthLayout({ docTitle, step, title, subtitle, children, footer, cowSays, httpCode }) {
   return (
     <div className="min-h-dvh grid lg:grid-cols-[1.15fr_1fr]">
@@ -28,7 +18,7 @@ export default function AuthLayout({ docTitle, step, title, subtitle, children, 
         <div className="pt-[12vh]">
           <pre className="glitch text-cyan text-[0.6rem] xl:text-[0.78rem] leading-none font-mono whitespace-pre">{LOGO}</pre>
           <p className="mt-6 max-w-md text-sm text-mute leading-relaxed">
-            Todo o acervo do <span className="text-orange">Curso em Vídeo</span> organizado em trilhas.
+            Cursos em vídeo organizados em trilhas.
             Sem algoritmo te distraindo. <span className="text-pink">Só você e o código.</span>
           </p>
         </div>
@@ -41,14 +31,6 @@ export default function AuthLayout({ docTitle, step, title, subtitle, children, 
               <span>$ sync --playlists</span><span className="text-cyan">ok</span>
             </div>
             <ul className="px-4 py-3 space-y-1.5 text-xs">
-              {FEED.map(([name, n, color]) => (
-                <li key={name} className="flex gap-3">
-                  <span className="text-mute">&gt;</span>
-                  <span className={color}>{name}</span>
-                  <span className="flex-1 border-b border-dotted border-line translate-y-[-4px]" />
-                  <span className="text-mute">{n}</span>
-                </li>
-              ))}
               <li className="text-mute">&gt; aguardando login<span className="caret">_</span></li>
             </ul>
           </div>

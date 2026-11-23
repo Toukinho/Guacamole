@@ -8,6 +8,7 @@ import com.guacamole.backend.entity.Course;
 
 /** Acesso aos cursos; a consulta paginada carrega tambem o professor. */
 public interface CourseRepository extends JpaRepository<Course, Long> {
+	boolean existsByYoutubeIdPlaylist(String youtubeIdPlaylist);
 	/** Busca uma pagina de cursos com seus professores para evitar consultas adicionais durante o mapeamento. */
 	@EntityGraph(attributePaths = "teacher")
 	Page<Course> findAll(Pageable pageable);

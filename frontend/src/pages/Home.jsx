@@ -27,7 +27,7 @@ export default function Home() {
             Aprenda<br /><span className="text-cyan">tecnologia</span><br />do zero<span className="text-orange">.</span>
           </h1>
           <p className="mt-6 max-w-lg text-sm leading-relaxed text-mute sm:text-base">
-            Os cursos gratuitos do <span className="text-orange">Curso em Vídeo</span> organizados em trilhas,
+            Cursos gratuitos organizados em trilhas,
             com o seu progresso salvo aula por aula.
           </p>
           <div className="mt-10 flex flex-wrap gap-5">

@@ -79,6 +79,3 @@ export function Notice({ tone = 'cyan', children }) {
 }
 
 export const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-
-// shortcut: password recovery has no route in api_cursos.md, so RecuperarSenha only simulates; replace when the backend adds one
-export const fakeRequest = () => new Promise((r) => setTimeout(r, 900))

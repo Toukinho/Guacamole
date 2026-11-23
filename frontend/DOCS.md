@@ -1,3 +1,15 @@
+# Frontend Guacamole
+
+O frontend usa React, Vite e Tailwind. Instruções atuais de execução e integração estão no [README da raiz](../README.md).
+
+`src/api.js` centraliza chamadas HTTP e o token; `useApi.js` acompanha carregamento e erros; `pages/` contém telas; `components/` contém a interface compartilhada. O proxy de desenvolvimento em `vite.config.js` encaminha `/api` para `localhost:8080`. A aplicação não simula recuperação de senha nem cursos: exibe estado vazio quando o banco não possui cursos.
+
+Os arquivos antigos em `tests/` dependem de um servidor simulado que não está presente no repositório e precisam ser atualizados antes de serem usados.
+
+## Documentação anterior (histórica)
+
+O conteúdo abaixo descreve uma versão anterior e contém instruções e recursos desatualizados. Use o README da raiz para executar o projeto.
+
 # Guacamole — Documentação do Front-end
 
 Registro vivo do front-end: o que existe, como funciona e por que foi feito assim.

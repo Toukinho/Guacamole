@@ -1,82 +1,87 @@
 # Guacamole
 
-Backend Java para uma API de cursos. O documento [api_cursos.md](api_cursos.md) descreve os requisitos; a implementação ainda não cobre todas as rotas nele previstas.
+Aplicação de cursos em vídeo: React no navegador, API Java/Spring Boot e MySQL para usuários, cursos e progresso. O vídeo é reproduzido pelo player do YouTube. Para entender o código Java, leia [ESTUDO_JAVA.md](ESTUDO_JAVA.md).
+
+## Requisitos
+
+- JDK 25, Node.js 20.19+ ou 22.12+ e npm.
+- MySQL 8 disponível, ou Docker para iniciar um banco local.
+- Internet para baixar dependências e reproduzir vídeos. Para importar playlists públicas, também é necessária uma chave da YouTube Data API v3.
+
+## 1. Banco de dados
+
+Com um MySQL próprio, crie um banco vazio chamado `guacamole` e use um usuário com permissões nesse banco. Alternativamente, para desenvolvimento local com Docker, escolha uma senha local e execute:
+
+```sh
+docker run -d --name guacamole-local -p 127.0.0.1:3307:3306 \
+  -e MYSQL_DATABASE=guacamole -e MYSQL_ROOT_PASSWORD='SUA_SENHA_LOCAL' mysql:8.0
+```
+
+Guarde a senha escolhida: será necessária para o backend. Este exemplo usa a porta **3307** para não interferir em outro MySQL. O banco ficará dentro do container; não o remova se quiser preservar os dados. Para reiniciá-lo depois: `docker start guacamole-local`. Para parar: `docker stop guacamole-local`.
+
+## 2. Backend
+
+Copie `backend/Spring/.env.example` para `backend/Spring/.env` e preencha os valores. Para o Docker acima, por exemplo:
+
+```properties
+DB_URL=jdbc:mysql://127.0.0.1:3307/guacamole
+DB_USERNAME=root
+DB_PASSWORD=SUA_SENHA_LOCAL
+```
+
+O arquivo `.env` é local e ignorado pelo Git. Nunca envie credenciais. No terminal:
+
+```sh
+cd backend/Spring
+sh gradlew bootRun
+```
+
+No Windows, use `gradlew.bat bootRun`. O Gradle usa Java 25; se necessário, configure `JAVA_HOME`. O Flyway cria as tabelas no banco vazio e o backend atende em `http://localhost:8080`. O processo deve continuar aberto. A raiz `/` pode retornar 404; teste `http://localhost:8080/courses`.
+
+## 3. Frontend
+
+Em outro terminal:
+
+```sh
+cd frontend
+npm ci
+npm run dev -- --host 127.0.0.1
+```
+
+Abra o endereço mostrado pelo Vite, normalmente `http://127.0.0.1:5173`. O Vite encaminha `/api` para o backend em `localhost:8080`, evitando configuração de CORS no desenvolvimento. Cadastre-se com senha de pelo menos 12 caracteres e no máximo 72 bytes; entre, salve cursos e marque aulas concluídas. Ao sair, o token é revogado. Em implantação, configure um proxy que encaminhe `/api` ao Spring ou configure `VITE_API_URL` e CORS adequados; o proxy acima é apenas para desenvolvimento.
+
+Um banco novo tem catálogo vazio. A recuperação de senha ainda não foi implementada e não envia e-mails. Os totais do perfil consideram cursos atualmente salvos; retirar um curso não apaga as conclusões no banco.
+
+## Importar playlist do YouTube
+
+1. No Google Cloud, ative a YouTube Data API v3 e crie uma chave apropriada. Não coloque a chave no código nem no Git.
+2. Escolha uma playlist pública e copie o valor de `list` da URL. Consulte a [documentação de playlists](https://developers.google.com/youtube/data/reference/rest/v3/playlists/list) e de [itens da playlist](https://developers.google.com/youtube/data/reference/rest/v3/playlistItems/list).
+3. Pare o backend em execução. No mesmo terminal configurado com o banco, informe `YOUTUBE_API_KEY` no ambiente e inicie explicitamente com a propriedade abaixo:
+
+```sh
+cd backend/Spring
+export YOUTUBE_API_KEY='SUA_CHAVE'
+sh gradlew bootRun --args='--youtube.import.playlist=ID_DA_PLAYLIST'
+```
+
+No PowerShell, use `$env:YOUTUBE_API_KEY = 'SUA_CHAVE'` e `./gradlew.bat bootRun --args='--youtube.import.playlist=ID_DA_PLAYLIST'`. Não adicione a chave ao comando `--args`: ela deve permanecer no ambiente. Ao concluir a importação o servidor permanece ligado. Na próxima execução normal, omita `--args` para não tentar importar de novo.
+
+O importador cria um curso com o nome da playlist e um professor com o nome do canal; lê todas as páginas e guarda IDs e posições dos vídeos. Vídeos privados/excluídos identificados pelo YouTube são ignorados. Falhas HTTP, quota ou timeout abortam a operação; verifique a chave, permissões e disponibilidade. A importação é transacional e rejeita uma playlist já existente; não atualiza playlists já importadas. Execute apenas uma importação por vez: não há trava entre processos concorrentes. Alguns vídeos podem bloquear reprodução incorporada. O player depende de conexão com o YouTube.
+
+## Testes
+
+```sh
+cd backend/Spring
+sh gradlew test
+```
+
+Os testes Java usam H2 em memória, sem exigir MySQL. O teste do importador simula a API YouTube localmente. Para compilar o frontend: `cd frontend && npm ci && npm run build`.
+
+Para testar cadastro, perfil e logout no navegador, deixe frontend e backend ligados, execute `npx playwright install chromium` uma vez e rode `npm run test:flow` em `frontend/`. **Esse teste cria uma conta no banco configurado**; use um banco de testes quando necessário. Os arquivos antigos `flow.mjs` e `audit.mjs` dependem de uma API simulada ausente e não representam o fluxo atual.
 
 ## Estrutura
 
-O backend fica em `backend/Spring`. O código Java está em `src/main/java/com/guacamole/backend`:
-
-| Pacote | Responsabilidade |
-| --- | --- |
-| `entity` | Entidades JPA e chaves compostas. |
-| `repositories` | Acesso aos dados com Spring Data JPA. |
-| `services` | Consultas e regras de negócio. |
-| `resources` | Entrada HTTP; atualmente expõe a listagem de cursos. |
-| `dto` | Dados devolvidos pela listagem e contagens de progresso. |
-
-`frontend/` é um espaço reservado, sem aplicação configurada.
-
-## Modelo de dados
-
-Um `Teacher` ministra cursos (`Course`); cada curso possui aulas (`Lesson`) ordenadas por `position`. A combinação de curso e posição deve ser única. `User` tem email único.
-
-`CourseWatchlist` representa o curso salvo por um usuário e registra `createdAt`. `LessonCompletion` representa a conclusão de uma aula e registra `completedAt`. Cada entidade associativa usa uma chave composta pelos IDs das duas entidades relacionadas; as datas são preenchidas ao persistir o vínculo.
-
-As coleções `@OneToMany` são o lado inverso dos relacionamentos. O campo `@ManyToOne` controla a chave estrangeira: adicionar algo apenas à coleção inversa não persiste o vínculo. Coleções marcadas como `LAZY` são carregadas quando acessadas, dentro de uma sessão apropriada.
-
-## Execução local
-
-São necessários JDK 25, MySQL acessível e um esquema compatível com as entidades. Em PowerShell:
-
-```powershell
-cd backend/Spring
-$env:SPRING_PROFILES_ACTIVE = 'local'
-.\gradlew.bat bootRun
-```
-
-O perfil `local` carrega `src/main/resources/application-local.properties`, se existir. Mantenha esse arquivo ignorado pelo Git e configure nele as credenciais locais, ou forneça as variáveis de ambiente. A configuração padrão usa `DB_URL` (padrão `jdbc:mysql://localhost:3306/guacamole`), usuário `root` e `DB_PASSWORD`. Não compartilhe senhas.
-
-`bootRun` permanece ativo enquanto o servidor estiver em execução; pressione `Ctrl+C` para encerrá-lo. Uma resposta 404 em `/` não indica, por si só, falha de inicialização.
-
-Para compilar e executar testes:
-
-```powershell
-$env:SPRING_PROFILES_ACTIVE = 'local'
-.\gradlew.bat test
-.\gradlew.bat build
-```
-
-O teste de contexto utiliza a configuração do banco e pode exigir MySQL acessível. Use `test --rerun-tasks` para forçar a execução sem reaproveitar o resultado anterior.
-
-## Banco e migrations
-
-O Flyway está habilitado e procura migrations em `src/main/resources/db/migration`. O Hibernate usa `ddl-auto=validate`: ele valida o esquema, mas não cria as tabelas. O baseline está configurado na versão 1 para bancos existentes. O arquivo `V2__add_category_to_course.sql` está vazio; as migrations presentes não fornecem a criação inicial das tabelas. A conexão e um esquema compatível precisam estar disponíveis antes de iniciar a aplicação.
-
-## Listagem de cursos
-
-`GET /courses` retorna cursos paginados, com nome do professor. Os parâmetros são:
-
-| Parâmetro | Padrão | Valores |
-| --- | --- | --- |
-| `page` | `0` | Inteiro maior ou igual a zero. |
-| `size` | `20` | Inteiro entre 1 e 50. |
-
-Os resultados são ordenados por título crescente e, em seguida, por ID. Exemplo: `GET /courses?page=0&size=20`.
-
-```json
-{
-  "content": [{"id": 1, "title": "Java", "teacher": "Ana"}],
-  "page": 0,
-  "size": 20,
-  "totalElements": 1,
-  "totalPages": 1
-}
-```
-
-Valores numéricos fora dos limites e valores que não podem ser convertidos para inteiro resultam em resposta 400. A ordenação textual depende da collation configurada no banco.
-
-## Serviços disponíveis e próximos passos
-
-`CourseService` pagina e busca cursos. `LessonService` busca aulas e as lista em ordem. `UserCourseService` adiciona ou remove cursos salvos e conclusões, consulta vínculos e retorna contagens de progresso. As operações de escrita bloqueiam a linha do usuário durante a transação para coordenar alterações concorrentes realizadas por esses serviços. Remover um curso salvo não remove suas conclusões.
-
-O ID recebido pelos métodos pessoais deve vir de uma autenticação confiável; esses métodos não validam tokens. As rotas pessoais e a autenticação ainda não foram implementadas. A porcentagem do progresso também permanece pendente: `ProgressDto` contém apenas as contagens. O documento de requisitos não define a estratégia de token, o arredondamento ou o comportamento para cursos sem aulas.
+- `backend/Spring/src/main/java/com/guacamole/backend`: entidades, repositórios, serviços, recursos HTTP, DTOs e segurança.
+- `backend/Spring/src/main/resources/db/migration`: migrations Flyway; `application.properties` configura banco e autenticação.
+- `frontend/src`: páginas React, componentes, cliente HTTP e estilos.
+- `api_cursos.md`: requisitos funcionais locais, quando disponível.
